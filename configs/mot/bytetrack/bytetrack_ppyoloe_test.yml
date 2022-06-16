@@ -1,0 +1,54 @@
+_BASE_: [
+  '../../ppyoloe/ppyoloe_crn_l_300e.yml',
+  '_base_/ctmc_test.yml',
+]
+
+metric: MOT
+num_classes: 1
+
+architecture: ByteTrack
+ByteTrack:
+  detector: YOLOv3 # PPYOLOe version
+  reid: None
+  tracker: JDETracker
+det_weights: output/ppyoloe_crn_l_300e/best_model.pdparams
+reid_weights: None
+
+YOLOv3:
+  backbone: CSPResNet
+  neck: CustomCSPPAN
+  yolo_head: PPYOLOEHead
+  post_process: ~
+
+# Tracking requires higher quality boxes, so NMS score_threshold will be higher
+PPYOLOEHead:
+  fpn_strides: [32, 16, 8]
+  grid_cell_scale: 5.0
+  grid_cell_offset: 0.5
+  static_assigner_epoch: -1 # 100
+  use_varifocal_loss: True
+  eval_size: [640, 640]
+  loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
+  static_assigner:
+    name: ATSSAssigner
+    topk: 9
+  assigner:
+    name: TaskAlignedAssigner
+    topk: 13
+    alpha: 1.0
+    beta: 6.0
+  nms:
+    name: MultiClassNMS
+    nms_top_k: 1000
+    keep_top_k: 100
+    score_threshold: 0.1 # 0.01 in original detector
+    nms_threshold: 0.4 # 0.6 in original detector
+
+# BYTETracker
+JDETracker:
+  use_byte: True
+  match_thres: 0.8
+  conf_thres: 0.4
+  low_conf_thres: 0.1
+  min_box_area: 0
+  vertical_ratio: -1

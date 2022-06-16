@@ -1,0 +1,17 @@
+metric: COCO
+num_classes: 1
+
+# MOTDataset for MOT evaluation and inference
+EvalMOTDataset:
+  !MOTImageFolder
+    dataset_dir: dataset/mot
+    data_root: val
+    keep_ori_im: True # set as True in DeepSORT and ByteTrack
+
+EvalMOTReader:
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225], is_scale: True}
+    - Permute: {}
+  batch_size: 1
