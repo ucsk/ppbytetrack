@@ -1,6 +1,16 @@
+## Introduction
+
+Our method is in the tracking-by-detection paradigm, the detector uses the anchor-free model PP-YOLOE, and the tracker uses ByteTrack, so our method can be optimized separately and only needs to train the detector for cell detection.
+
+We only used the CTMC-v1 dataset as the training of the cell detection model, but used COCO pretrained weights.
+
+We take the first 25% of the time series of each sequence in the CTMC-v1 dataset as the validation set and the last 75% as the training set. In particular, for the training of the detector, we use frame sampling to obtain 9191 (6911+2280) images on the divided dataset for training and validation (this greatly improves the training efficiency of the cell detector). For the local evaluation of the tracker, we use the full validation set.
+
+We believe that there are still many areas for improvement in this approach, but the simple, unpretentious steps further demonstrate the effectiveness of our ideas.
+
 ## Prepare the environment
 
-We use Python-3.7 and PaddlePaddle-2.2.2 framework to implement multi-cell tracking, if you are interested in this, please install [PaddlePaddle](https://www.paddlepaddle.org.cn/documentation/docs/en /2.2/install/index_en.html).
+We use Python-3.7 and PaddlePaddle-2.2.2 framework to implement multi-cell tracking, if you are interested in this project, please install [PaddlePaddle](https://www.paddlepaddle.org.cn/documentation/docs/en/2.2/install/index_en.html) first.
 
 The next code or command comes from the Jupyter environment.
 
@@ -50,7 +60,8 @@ We use a 4 card Tesla V100 (32 GB) for training. You can modify the batch size (
 ```
 
 ```bash
-# single card training
+# For single-card training,
+# please adapt the learning-rate and batch-size first.
 !python tools/train.py \
     -c configs/ppyoloe/ppyoloe_crn_l_300e.yml \
     --vdl_log_dir=vdl_log/ppyoloe_crn_l_300e \
@@ -59,7 +70,7 @@ We use a 4 card Tesla V100 (32 GB) for training. You can modify the batch size (
 
 ## Model evaluation
 
-The validation set optimal model was selected for cell detection.
+We choose the highest weight of COCO-mAP on the validation set (2280 images) as the final model.
 
 ```bash
 !python tools/eval.py \
@@ -70,9 +81,12 @@ The validation set optimal model was selected for cell detection.
 
 ## Model prediction
 
-Combine detector and tracker to achieve multi-cell tracking and generate MOT-Challenge submission file (test set part).
+For the trained detector weights, we configure the path of the weights on the tracker file (`configs/mot/bytetrack/*.yml`, `det_weights:`).
+
+When making predictions on the CTMC-v1 test set, be careful to modify the path to the dataset (`configs/mot/bytetrack/_base_/ctmc_test.yml`, `dataset_dir`).
 
 ```bash
+# Generate the MOT-Challenge format file of the validation set.
 !python tools/eval_mot.py \
     -c configs/mot/bytetrack/bytetrack_ppyoloe_val.yml \
     --output_dir=output/val/bytetrack_ppyoloe \
@@ -80,15 +94,18 @@ Combine detector and tracker to achieve multi-cell tracking and generate MOT-Cha
 ```
 
 ```bash
+# Generate the MOT-Challenge format file of the test set.
 !python tools/eval_mot.py \
     -c configs/mot/bytetrack/bytetrack_ppyoloe_test.yml \
     --output_dir=output/test/bytetrack_ppyoloe \
     --scaled=True
 ```
 
+When it was time to submit it to the server, we copied the GT annotation files in the training set and mixed the prediction results of the test set, and passed the server's review (because the server needs 86 cell sequence files, which includes the training set and test set).
+
 ## Valid-set evaluation
 
-We have used the time-series top 25% of the CTMC dataset for tracker parameter optimization.
+After completing the generation of the cell tracking result file, we compare the result file of the validation set with the GT annotation to verify the local reliability of the method. Here, the parameters of the tracker can be slightly adjusted.
 
 ```bash
 !python tools/eval_ctmc.py
